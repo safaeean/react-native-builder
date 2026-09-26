@@ -1,0 +1,66 @@
+# Example .gitlab-ci.yml for a React Native project.
+# Copy this into the ROOT of your React Native project's repository
+# (rename it to .gitlab-ci.yml) and adjust variables as needed.
+#
+# It uses the "react-native-builder" Docker image built from this
+# repository, which already contains Node.js, JDK 17, and the Android SDK
+# command-line tools/platform/build-tools needed to assemble Android
+# APK/AAB outputs.
+
+image: registry.gitlab.com/<your-group>/<your-image-repo>:latest
+# or, if you pushed it to Docker Hub:
+# image: <your-dockerhub-user>/react-native-builder:latest
+
+stages:
+  - build
+
+variables:
+  # Cache node_modules and gradle between pipelines for faster builds
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+    - .gradle/
+    - android/.gradle/
+
+before_script:
+  - yarn install --frozen-lockfile
+
+build_android_apk:
+  stage: build
+  script:
+    - cd android
+    - chmod +x ./gradlew
+    - ./gradlew assembleRelease
+  artifacts:
+    paths:
+      - android/app/build/outputs/apk/release/*.apk
+    expire_in: 30 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
+
+build_android_aab:
+  stage: build
+  script:
+    - cd android
+    - chmod +x ./gradlew
+    - ./gradlew bundleRelease
+  artifacts:
+    paths:
+      - android/app/build/outputs/bundle/release/*.aab
+    expire_in: 30 days
+  rules:
+    - if: '$CI_COMMIT_TAG'
+
+# --- Signing notes ---
+# For a signed release build, provide these as GitLab CI/CD variables
+# (masked/protected), and reference them from android/app/build.gradle
+# signingConfigs, e.g.:
+#   MYAPP_UPLOAD_STORE_FILE, MYAPP_UPLOAD_KEY_ALIAS,
+#   MYAPP_UPLOAD_STORE_PASSWORD, MYAPP_UPLOAD_KEY_PASSWORD
+#
+# You can decode a base64-encoded keystore stored in a CI variable like this
+# in `before_script`:
+#   - echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
