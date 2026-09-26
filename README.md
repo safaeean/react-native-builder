@@ -6,15 +6,16 @@
 ghcr.io/safaeean/react-native-builder:latest
 ```
 
-## سریع‌ترین راه استفاده (۳ قدم)
+## سریع‌ترین راه استفاده
 
-**۱.** فایل `.gitlab-ci.yml` رو داخل روت پروژه‌ی React Native خودت بساز:
+فایل `.gitlab-ci.yml` رو داخل روت پروژه‌ی React Native خودت با این محتوا بساز:
 
 ```yaml
 image: ghcr.io/safaeean/react-native-builder:latest
 
 stages:
   - build
+  - release
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}
@@ -34,13 +35,45 @@ build_apk:
     paths:
       - android/app/build/outputs/apk/release/*.apk
     expire_in: 30 days
+
+# --- از این‌جا به بعد فقط روی تگ اجرا می‌شه (اختیاری) ---
+
+upload_apk_to_package_registry:
+  stage: release
+  needs: ["build_apk"]
+  script:
+    - |
+      APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n1)
+      APK_NAME="app-${CI_COMMIT_TAG}.apk"
+      curl --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --upload-file "${APK_PATH}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/android-builds/${CI_COMMIT_TAG}/${APK_NAME}"
+  rules:
+    - if: '$CI_COMMIT_TAG'
+
+create_release:
+  stage: release
+  needs: ["upload_apk_to_package_registry"]
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  script:
+    - echo "Creating release for $CI_COMMIT_TAG"
+  release:
+    tag_name: "$CI_COMMIT_TAG"
+    description: "Release $CI_COMMIT_TAG"
+    assets:
+      links:
+        - name: "app-${CI_COMMIT_TAG}.apk"
+          url: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/android-builds/${CI_COMMIT_TAG}/app-${CI_COMMIT_TAG}.apk"
+  rules:
+    - if: '$CI_COMMIT_TAG'
 ```
 
-**۲.** پوش کن روی گیت‌لب.
+بعد پوش کن روی گیت‌لب:
 
-**۳.** بعد از اتمام پایپ‌لاین، از تب **CI/CD → Jobs → build_apk → Browse** روی همون job، فایل APK رو دانلود کن.
+- روی هر پوش معمولی، جاب `build_apk` اجرا می‌شه و APK رو می‌تونی از **CI/CD → Jobs → build_apk → Browse** دانلود کنی.
+- روی هر **تگ** (مثلاً `git tag v1.0.0 && git push origin v1.0.0`)، علاوه بر بیلد، APK به‌عنوان **GitLab Release** هم زیر **Deployments → Releases** پروژه‌ت منتشر می‌شه.
 
-همین. نیازی به نصب Android Studio، JDK یا SDK روی سیستم یا رانر خودت نیست — همه‌چیز داخل ایمیجه.
+نیازی به نصب Android Studio، JDK یا SDK روی سیستم یا رانر خودت نیست — همه‌چیز داخل ایمیجه.
 
 > اگه پروژه‌ت از Yarn استفاده نمی‌کنه، خط `yarn install --frozen-lockfile` رو با `npm ci` عوض کن.
 
@@ -73,55 +106,10 @@ before_script:
 ```
 
 ### چطور AAB (برای Play Store) بگیرم؟
-به‌جای `assembleRelease` بنویس `bundleRelease` — خروجی توی `android/app/build/outputs/bundle/release/*.aab` قرار می‌گیره.
+به‌جای `assembleRelease` بنویس `bundleRelease` — خروجی توی `android/app/build/outputs/bundle/release/*.aab` قرار می‌گیره. نمونه‌ی جاب جدا برای AAB هم توی `.gitlab-ci.example.yml` هست.
 
-### میشه APK رو به‌عنوان GitLab Release بذاره؟
-آره، ولی این جاب‌ها توی `.gitlab-ci.yml` قدم ۱ (بخش سریع‌ترین راه استفاده) نیستن — باید خودت دو تا جاب زیر رو بهش **اضافه** کنی (و `release` رو به `stages` اضافه کنی):
-
-```yaml
-stages:
-  - build
-  - release
-
-upload_apk_to_package_registry:
-  stage: release
-  needs: ["build_apk"]
-  script:
-    - |
-      APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n1)
-      APK_NAME="app-${CI_COMMIT_TAG}.apk"
-      curl --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-        --upload-file "${APK_PATH}" \
-        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/android-builds/${CI_COMMIT_TAG}/${APK_NAME}"
-  rules:
-    - if: '$CI_COMMIT_TAG'
-
-create_release:
-  stage: release
-  needs: ["upload_apk_to_package_registry"]
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
-  script:
-    - echo "Creating release for $CI_COMMIT_TAG"
-  release:
-    tag_name: "$CI_COMMIT_TAG"
-    description: "Release $CI_COMMIT_TAG"
-    assets:
-      links:
-        - name: "app-${CI_COMMIT_TAG}.apk"
-          url: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/android-builds/${CI_COMMIT_TAG}/app-${CI_COMMIT_TAG}.apk"
-  rules:
-    - if: '$CI_COMMIT_TAG'
-```
-
-نکته: `upload_apk_to_package_registry` به artifact جاب `build_apk` نیاز داره، پس مطمئن شو اسم جاب بیلدت توی `needs` درست تنظیم شده (توی قدم ۱ اسمش `build_apk` بود). نسخه‌ی کامل‌تر با دو جاب جدا برای APK/AAB رو هم می‌تونی توی `.gitlab-ci.example.yml` ببینی.
-
-بعد از اضافه کردن، فقط کافیه یه تگ بسازی:
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
-و APK زیر **Deployments → Releases** پروژه‌ت قابل دانلود می‌شه.
-
-### فقط روی برنچ/تگ خاصی بیلد بگیره؟
+### فقط روی برنچ خاصی بیلد بگیره؟
+به جاب `build_apk` این رو اضافه کن:
 ```yaml
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
