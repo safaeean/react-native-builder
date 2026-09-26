@@ -26,7 +26,7 @@ cache:
 build_apk:
   stage: build
   before_script:
-    - yarn install --frozen-lockfile
+    - npm ci
   script:
     - cd android
     - chmod +x ./gradlew
@@ -75,7 +75,7 @@ create_release:
 
 نیازی به نصب Android Studio، JDK یا SDK روی سیستم یا رانر خودت نیست — همه‌چیز داخل ایمیجه.
 
-> اگه پروژه‌ت از Yarn استفاده نمی‌کنه، خط `yarn install --frozen-lockfile` رو با `npm ci` عوض کن.
+> اگه پروژه‌ت از Yarn استفاده می‌کنه (فایل `yarn.lock` داره، نه `package-lock.json`)، خط `npm ci` رو با `yarn install --frozen-lockfile` عوض کن.
 
 ---
 
@@ -102,7 +102,7 @@ base64 -w0 release.keystore
 ```yaml
 before_script:
   - echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
-  - yarn install --frozen-lockfile
+  - npm ci
 ```
 
 ### چطور AAB (برای Play Store) بگیرم؟
@@ -123,7 +123,7 @@ before_script:
 ## این ایمیج چیه دقیقاً؟
 
 - Java 17 (Eclipse Temurin)
-- Node.js 20 + Yarn
+- Node.js 22 + Yarn (npm از قبل با Node میاد)
 - Android SDK command-line tools + platform-tools
 - Android platform `android-34` و build-tools `34.0.0`
 - Fastlane (اختیاری، برای امضا/انتشار خودکار)

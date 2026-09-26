@@ -5,7 +5,7 @@ LABEL description="Build image for producing Android outputs (APK/AAB) from Reac
 ENV DEBIAN_FRONTEND=noninteractive \
     ANDROID_HOME=/opt/android-sdk \
     ANDROID_SDK_ROOT=/opt/android-sdk \
-    NODE_VERSION=20 \
+    NODE_VERSION=22 \
     GRADLE_OPTS="-Dorg.gradle.daemon=false" \
     LANG=en_US.UTF-8
 

@@ -31,7 +31,9 @@ cache:
     - android/.gradle/
 
 before_script:
-  - yarn install --frozen-lockfile
+  - npm ci
+  # If your project uses Yarn (has yarn.lock instead of package-lock.json):
+  # - yarn install --frozen-lockfile
 
 build_android_apk:
   stage: build
