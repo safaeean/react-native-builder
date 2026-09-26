@@ -7,9 +7,13 @@
 # command-line tools/platform/build-tools needed to assemble Android
 # APK/AAB outputs.
 
-image: registry.gitlab.com/<your-group>/<your-image-repo>:latest
-# or, if you pushed it to Docker Hub:
-# image: <your-dockerhub-user>/react-native-builder:latest
+image: ghcr.io/safaeean/react-native-builder:latest
+# If the GHCR package is private, add credentials instead:
+# image:
+#   name: ghcr.io/safaeean/react-native-builder:latest
+#   pull_policy: always
+# and in before_script:
+#   - echo "$GHCR_TOKEN" | docker login ghcr.io -u <github-username> --password-stdin
 
 stages:
   - build

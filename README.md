@@ -25,15 +25,19 @@ docker build \
   -t react-native-builder .
 ```
 
-## انتشار در GitLab Container Registry
+## انتشار خودکار ایمیج
 
-این ریپو خودش یه `.gitlab-ci.yml` داره که با هر پوش، ایمیج رو می‌سازه و به رجیستری همین پروژه در گیت‌لب پوش می‌کنه (تگ `latest` روی برنچ پیش‌فرض). کافیه:
+این ریپو روی **GitHub** هست، پس انتشار ایمیج از طریق **GitHub Actions** به **GitHub Container Registry (GHCR)** انجام می‌شه — نه GitLab. با هر پوش به `main`/`master` یا هر تگ `v*`، ورک‌فلو `.github/workflows/docker-image.yml` ایمیج رو می‌سازه و در آدرس زیر پابلیش می‌کنه:
 
-1. این ریپو رو در گیت‌لب خودتون (یا هر گیت‌لب دیگه) داشته باشید.
-2. پایپ‌لاین اجرا بشه؛ ایمیج در آدرسی مثل زیر در دسترس قرار می‌گیره:
-   ```
-   registry.gitlab.com/<group>/<project>:latest
-   ```
+```
+ghcr.io/safaeean/react-native-builder:latest
+```
+
+**نکته‌ی مهم:** پکیج‌های GHCR به‌صورت پیش‌فرض private هستن. برای اینکه هرکسی (مثلاً پایپ‌لاین GitLab یه پروژه‌ی دیگه) بتونه بدون لاگین ازش pull کنه، باید یک‌بار به‌صورت دستی پابلیکش کنی:
+
+`github.com/<owner>/<repo>/pkgs/container/react-native-builder` → **Package settings** → **Change visibility** → **Public**
+
+اگه ترجیح می‌دی همچنان به GitLab Container Registry هم پابلیش بشه (مثلاً چون تیمت روی GitLab CI کار می‌کنه)، فایل `.gitlab-ci.yml` این ریپو رو (که در ادامه توضیح داده می‌شه) هم می‌تونی فعال نگه داری — هر دو مسیر هم‌زمان قابل استفاده‌ست.
 
 ## استفاده در پروژه‌ی React Native خودتون
 
