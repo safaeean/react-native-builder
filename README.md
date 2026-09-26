@@ -6,6 +6,9 @@
 ghcr.io/safaeean/react-native-builder:latest
 ```
 
+> اگه داری از یه AI Agent (مثل Claude Code) می‌خوای این ابزار رو توی یه پروژه‌ی React Native دیگه وصل کنه،
+> بهش فایل [`AGENTS.md`](./AGENTS.md) رو بده — الگوریتم دقیق و قابل‌اجرا برای ایجنت اونجاست.
+
 ## سریع‌ترین راه استفاده
 
 فایل `.gitlab-ci.yml` رو داخل روت پروژه‌ی React Native خودت با این محتوا بساز:
