@@ -1,8 +1,92 @@
 # react-native-builder
 
-ایمیج داکر آماده برای بیلد خروجی اندروید (APK/AAB) پروژه‌های React Native، مناسب استفاده به‌عنوان `image` در GitLab CI.
+ایمیج داکر آماده (پابلیک، روی GHCR) برای گرفتن خروجی Android از پروژه‌های React Native، داخل GitLab CI.
 
-## چی داخلشه؟
+```
+ghcr.io/safaeean/react-native-builder:latest
+```
+
+## سریع‌ترین راه استفاده (۳ قدم)
+
+**۱.** فایل `.gitlab-ci.yml` رو داخل روت پروژه‌ی React Native خودت بساز:
+
+```yaml
+image: ghcr.io/safaeean/react-native-builder:latest
+
+stages:
+  - build
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - node_modules/
+    - android/.gradle/
+
+build_apk:
+  stage: build
+  before_script:
+    - yarn install --frozen-lockfile
+  script:
+    - cd android
+    - chmod +x ./gradlew
+    - ./gradlew assembleRelease
+  artifacts:
+    paths:
+      - android/app/build/outputs/apk/release/*.apk
+    expire_in: 30 days
+```
+
+**۲.** پوش کن روی گیت‌لب.
+
+**۳.** بعد از اتمام پایپ‌لاین، از تب **CI/CD → Jobs → build_apk → Browse** روی همون job، فایل APK رو دانلود کن.
+
+همین. نیازی به نصب Android Studio، JDK یا SDK روی سیستم یا رانر خودت نیست — همه‌چیز داخل ایمیجه.
+
+> اگه پروژه‌ت از Yarn استفاده نمی‌کنه، خط `yarn install --frozen-lockfile` رو با `npm ci` عوض کن.
+
+---
+
+## سوالات پرتکرار
+
+### چطور APK امضاشده (برای انتشار در Play Store) بگیرم؟
+
+۱. اگه keystore نداری بسازش:
+```bash
+keytool -genkeypair -v -storetype PKCS12 \
+  -keystore release.keystore -alias my-key-alias \
+  -keyalg RSA -keysize 2048 -validity 10000
+```
+
+۲. به‌صورت base64 دربیارش و در **Settings → CI/CD → Variables** پروژه‌ت (به‌صورت Masked + Protected) اضافه‌ش کن:
+```bash
+base64 -w0 release.keystore
+```
+متغیرها: `ANDROID_KEYSTORE_BASE64`, `MYAPP_UPLOAD_STORE_PASSWORD`, `MYAPP_UPLOAD_KEY_ALIAS`, `MYAPP_UPLOAD_KEY_PASSWORD`
+
+۳. در `android/app/build.gradle`، بخش `signingConfigs.release` رو طوری تنظیم کن که از `System.getenv(...)` بخونه (نه از `gradle.properties`).
+
+۴. در `.gitlab-ci.yml`، قبل از بیلد، keystore رو decode کن:
+```yaml
+before_script:
+  - echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+  - yarn install --frozen-lockfile
+```
+
+### چطور AAB (برای Play Store) بگیرم؟
+به‌جای `assembleRelease` بنویس `bundleRelease` — خروجی توی `android/app/build/outputs/bundle/release/*.aab` قرار می‌گیره.
+
+### فقط روی برنچ/تگ خاصی بیلد بگیره؟
+```yaml
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+```
+
+### بیلد کند شروع می‌شه یا خطای حافظه می‌ده؟
+مطمئن شو رانر گیت‌لبت حداقل ۴ گیگ رم داره؛ Gradle برای بیلد اندروید به رم نیاز داره.
+
+---
+
+## این ایمیج چیه دقیقاً؟
 
 - Java 17 (Eclipse Temurin)
 - Node.js 20 + Yarn
@@ -10,46 +94,22 @@
 - Android platform `android-34` و build-tools `34.0.0`
 - Fastlane (اختیاری، برای امضا/انتشار خودکار)
 
-## ساخت ایمیج
+ایمیج به‌صورت خودکار با هر پوش به `main` در همین ریپو، از طریق GitHub Actions ساخته و به GHCR پابلیش می‌شه (ورک‌فلو: `.github/workflows/docker-image.yml`).
+
+## ساخت/تست محلی ایمیج (اختیاری)
+
+فقط اگه می‌خوای خودت تغییرش بدی لازمه:
 
 ```bash
 docker build -t react-native-builder .
+docker run --rm -it -v $(pwd):/project react-native-builder bash
+cd /project/android && ./gradlew assembleRelease
 ```
 
-می‌تونید نسخه‌ی پلتفرم/بیلدتولز اندروید رو هم عوض کنید:
-
+می‌تونی نسخه‌ی پلتفرم/بیلدتولز اندروید رو هم عوض کنی:
 ```bash
 docker build \
   --build-arg ANDROID_PLATFORM=android-35 \
   --build-arg ANDROID_BUILD_TOOLS=35.0.0 \
   -t react-native-builder .
-```
-
-## انتشار خودکار ایمیج
-
-این ریپو روی **GitHub** هست، پس انتشار ایمیج از طریق **GitHub Actions** به **GitHub Container Registry (GHCR)** انجام می‌شه — نه GitLab. با هر پوش به `main`/`master` یا هر تگ `v*`، ورک‌فلو `.github/workflows/docker-image.yml` ایمیج رو می‌سازه و در آدرس زیر پابلیش می‌کنه:
-
-```
-ghcr.io/safaeean/react-native-builder:latest
-```
-
-**نکته‌ی مهم:** پکیج‌های GHCR به‌صورت پیش‌فرض private هستن. برای اینکه هرکسی (مثلاً پایپ‌لاین GitLab یه پروژه‌ی دیگه) بتونه بدون لاگین ازش pull کنه، باید یک‌بار به‌صورت دستی پابلیکش کنی:
-
-`github.com/<owner>/<repo>/pkgs/container/react-native-builder` → **Package settings** → **Change visibility** → **Public**
-
-اگه ترجیح می‌دی همچنان به GitLab Container Registry هم پابلیش بشه (مثلاً چون تیمت روی GitLab CI کار می‌کنه)، فایل `.gitlab-ci.yml` این ریپو رو (که در ادامه توضیح داده می‌شه) هم می‌تونی فعال نگه داری — هر دو مسیر هم‌زمان قابل استفاده‌ست.
-
-## استفاده در پروژه‌ی React Native خودتون
-
-فایل `.gitlab-ci.example.yml` رو ببینید — نمونه‌ی کامل یه پایپ‌لاین است که با استفاده از این ایمیج، خروجی APK و AAB می‌گیره. کافیه اون رو به‌عنوان `.gitlab-ci.yml` داخل روت پروژه‌ی React Native خودتون کپی کنید و `image:` رو به آدرس ایمیجی که ساختید تغییر بدید.
-
-نکات مهم:
-- برای بیلد امضاشده (release قابل انتشار در Play Store) باید keystore و پسوردهاش رو به‌صورت CI/CD Variables (masked/protected) در گیت‌لب پروژه‌ی مقصد تعریف کنید و در `android/app/build.gradle` رفرنس بدید.
-- کش `node_modules` و `.gradle` در نمونه فعاله تا بیلدهای بعدی سریع‌تر بشن.
-
-## تست محلی
-
-```bash
-docker run --rm -it -v $(pwd):/project react-native-builder bash
-cd /project/android && ./gradlew assembleRelease
 ```
