@@ -17,6 +17,7 @@ image: ghcr.io/safaeean/react-native-builder:latest
 
 stages:
   - build
+  - release
 
 variables:
   # Cache node_modules and gradle between pipelines for faster builds
@@ -57,6 +58,41 @@ build_android_aab:
     expire_in: 30 days
   rules:
     - if: '$CI_COMMIT_TAG'
+
+# --- Publish the APK as a GitLab Release (only on tags, e.g. v1.0.0) ---
+# Requires build_android_apk to have run first and produced the APK artifact.
+upload_apk_to_package_registry:
+  stage: release
+  needs: ["build_android_apk"]
+  script:
+    - |
+      APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n1)
+      APK_NAME="app-${CI_COMMIT_TAG}.apk"
+      curl --fail --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --upload-file "${APK_PATH}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/android-builds/${CI_COMMIT_TAG}/${APK_NAME}"
+  rules:
+    - if: '$CI_COMMIT_TAG'
+
+create_release:
+  stage: release
+  needs: ["upload_apk_to_package_registry"]
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  script:
+    - echo "Creating release for $CI_COMMIT_TAG"
+  release:
+    tag_name: "$CI_COMMIT_TAG"
+    description: "Release $CI_COMMIT_TAG"
+    assets:
+      links:
+        - name: "app-${CI_COMMIT_TAG}.apk"
+          url: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/android-builds/${CI_COMMIT_TAG}/app-${CI_COMMIT_TAG}.apk"
+  rules:
+    - if: '$CI_COMMIT_TAG'
+
+# To trigger this: create a git tag (e.g. `git tag v1.0.0 && git push origin v1.0.0`).
+# The APK will then show up under Deployments > Releases in your GitLab project,
+# downloadable directly from there.
 
 # --- Signing notes ---
 # For a signed release build, provide these as GitLab CI/CD variables

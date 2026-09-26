@@ -75,6 +75,13 @@ before_script:
 ### چطور AAB (برای Play Store) بگیرم؟
 به‌جای `assembleRelease` بنویس `bundleRelease` — خروجی توی `android/app/build/outputs/bundle/release/*.aab` قرار می‌گیره.
 
+### میشه APK رو به‌عنوان GitLab Release بذاره؟
+آره. کافیه دو جاب اضافه به پایپ‌لاین اضافه کنی: یکی APK رو در Generic Package Registry پروژه آپلود می‌کنه، دیگری با `release-cli` یه GitLab Release می‌سازه و APK رو به‌عنوان asset لینک می‌کنه. نمونه‌ی کاملش (جاب‌های `upload_apk_to_package_registry` و `create_release`) توی `.gitlab-ci.example.yml` هست. کافیه بعد از پوش، یه تگ بسازی:
+```bash
+git tag v1.0.0 && git push origin v1.0.0
+```
+و APK زیر **Deployments → Releases** پروژه‌ت قابل دانلود می‌شه.
+
 ### فقط روی برنچ/تگ خاصی بیلد بگیره؟
 ```yaml
   rules:
